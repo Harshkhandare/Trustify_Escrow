@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  walletAddress String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  escrowsAsBuyer   Escrow[] @relation("BuyerEscrows")
+  escrowsAsSeller   Escrow[] @relation("SellerEscrows")
+  escrowsAsArbiter  Escrow[] @relation("ArbiterEscrows")
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+}
+
+model Escrow {
+  id                String   @id @default(cuid())
+  title             String?
+  type              String?
+  buyerId           String
+  sellerId          String
+  arbiterId         String
+  buyerAddress      String
+  sellerAddress     String
+  arbiterAddress    String
+  amount            String
+  token             String   @default("USDC")
+  status            String   @default("PENDING")
+  description       String?
+  deliverables      String?
+  
+  // Payment details
+  feePercentage     Float    @default(1.0)
+  feePaidBy          String   @default("payer")
+  fundingDeadline    DateTime?
+  
+  // Release conditions
+  releaseCondition   String?
+  autoReleaseTime    DateTime?
+  
+  // Dispute
+  disputeWindow      Int      @default(3)
+  disputeResolver    String   @default("platform-admin")
+  
+  // Timestamps
+  createdAt          DateTime @default(now())
+  fundedAt           DateTime?
+  releasedAt         DateTime?
+  refundedAt         DateTime?
+  disputedAt         DateTime?
+  updatedAt          DateTime @updatedAt
+  
+  // Relations
+  buyer              User     @relation("BuyerEscrows", fields: [buyerId], references: [id])
+  seller             User     @relation("SellerEscrows", fields: [sellerId], references: [id])
+  arbiter            User     @relation("ArbiterEscrows", fields: [arbiterId], references: [id])
+  milestones         Milestone[]
+  activities         Activity[]
+  
+  @@index([buyerAddress])
+  @@index([sellerAddress])
+  @@index([arbiterAddress])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  escrowId    String
+  title       String
+  description String
+  amount      String
+  dueDate     DateTime
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  escrow      Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  
+  @@index([escrowId])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  escrowId String
+  type     String
+  message  String
+  userId   String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  escrow   Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  
+  @@index([escrowId])
+  @@index([createdAt])
+}
+
