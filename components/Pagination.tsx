@@ -98,3 +98,4 @@ export function Pagination({ currentPage, totalPages, basePath = '/escrows' }: P
   )
 }
 
+

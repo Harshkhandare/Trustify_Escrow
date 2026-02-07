@@ -6,6 +6,7 @@ import logger from '@/lib/logger'
 import { EscrowStatus } from '@/types/escrow'
 import { handleApiError } from '@/lib/apiErrorHandler'
 import { sendEmail, getEscrowEmailTemplate } from '@/lib/email'
+import { createNotificationsForUsers } from '@/lib/notifications'
 
 export async function GET(
   request: NextRequest,
@@ -232,12 +233,13 @@ export async function PUT(
       },
     })
 
-    // Send email notifications
+    // Send email and in-app notifications
     if (action) {
       try {
-        const [buyerUser, sellerUser] = await Promise.all([
+        const [buyerUser, sellerUser, arbiterUser] = await Promise.all([
           prisma.user.findUnique({ where: { id: escrow.buyerId } }),
           prisma.user.findUnique({ where: { id: escrow.sellerId } }),
+          prisma.user.findUnique({ where: { id: escrow.arbiterId } }),
         ])
 
         const emailType = action as 'funded' | 'released' | 'refunded' | 'disputed'
@@ -248,24 +250,51 @@ export async function PUT(
           token: escrow.token,
         })
 
-        if (buyerUser?.email && buyerUser.email.includes('@')) {
-          await sendEmail({
-            to: buyerUser.email,
-            subject: template.subject,
-            html: template.html,
+        // Create in-app notifications
+        const notificationUserIds: string[] = []
+        if (action === 'fund') {
+          notificationUserIds.push(escrow.sellerId, escrow.arbiterId)
+        } else if (action === 'release') {
+          notificationUserIds.push(escrow.buyerId, escrow.sellerId)
+        } else if (action === 'refund') {
+          notificationUserIds.push(escrow.buyerId, escrow.sellerId)
+        } else if (action === 'dispute') {
+          notificationUserIds.push(escrow.buyerId, escrow.sellerId, escrow.arbiterId)
+        }
+
+        if (notificationUserIds.length > 0) {
+          await createNotificationsForUsers(notificationUserIds, {
+            type: action === 'dispute' ? 'warning' : 'info',
+            title: `Escrow ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+            message: activityMessage,
+            link: `/escrows/${escrow.id}`,
+            metadata: { escrowId: escrow.id, action },
           })
         }
 
+        // Send email notifications
+        const emailRecipients = []
+        if (buyerUser?.email && buyerUser.email.includes('@')) {
+          emailRecipients.push({ user: buyerUser, email: buyerUser.email })
+        }
         if (sellerUser?.email && sellerUser.email.includes('@')) {
-          await sendEmail({
-            to: sellerUser.email,
-            subject: template.subject,
-            html: template.html,
-          })
+          emailRecipients.push({ user: sellerUser, email: sellerUser.email })
+        }
+
+        for (const recipient of emailRecipients) {
+          try {
+            await sendEmail({
+              to: recipient.email,
+              subject: template.subject,
+              html: template.html,
+            })
+          } catch (emailError) {
+            logger.error(`Failed to send email to ${recipient.email}:`, emailError)
+          }
         }
       } catch (error) {
-        logger.error('Failed to send email notifications:', error)
-        // Don't fail the request if email fails
+        logger.error('Failed to send notifications:', error)
+        // Don't fail the request if notifications fail
       }
     }
 

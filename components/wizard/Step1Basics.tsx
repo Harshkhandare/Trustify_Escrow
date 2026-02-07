@@ -1,6 +1,7 @@
 'use client'
 
 import { EscrowFormData, EscrowType } from '@/types/escrowForm'
+import { TemplatePicker } from '@/components/TemplatePicker'
 
 interface Step1BasicsProps {
   formData: EscrowFormData
@@ -11,6 +12,11 @@ interface Step1BasicsProps {
 export function Step1Basics({ formData, updateFormData, errors }: Step1BasicsProps) {
   return (
     <div className="space-y-6">
+      <TemplatePicker
+        currentFormData={formData}
+        onApply={(updates) => updateFormData(updates)}
+      />
+
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
           Escrow Title <span className="text-red-500">*</span>
@@ -71,4 +77,5 @@ export function Step1Basics({ formData, updateFormData, errors }: Step1BasicsPro
     </div>
   )
 }
+
 

@@ -12,6 +12,9 @@ export function LoginForm() {
     email: '',
     password: '',
   })
+  const [requiresTwoFactor, setRequiresTwoFactor] = useState(false)
+  const [twoFactorCode, setTwoFactorCode] = useState('')
+  const [backupCode, setBackupCode] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
@@ -33,7 +36,10 @@ export function LoginForm() {
     }, 30000)
 
     try {
-      const response = await login(formData.email, formData.password)
+      const response = await login(formData.email, formData.password, {
+        twoFactorCode: requiresTwoFactor ? twoFactorCode : undefined,
+        backupCode: requiresTwoFactor ? backupCode : undefined,
+      })
       
       if (!response || !response.user) {
         throw new Error('Invalid response from server')
@@ -63,6 +69,10 @@ export function LoginForm() {
       console.error('Login error:', err)
       let errorMsg = 'Login failed. Please try again.'
       
+      if ((err as any)?.data?.requiresTwoFactor) {
+        setRequiresTwoFactor(true)
+      }
+
       if (err instanceof Error) {
         errorMsg = err.message
       } else if (err?.error) {
@@ -154,6 +164,45 @@ export function LoginForm() {
           </button>
         </div>
       </div>
+
+      {requiresTwoFactor && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
+          Two-factor authentication is enabled for this account. Enter a 6-digit code from your authenticator app or use a backup code.
+        </div>
+      )}
+
+      {requiresTwoFactor && (
+        <div className="grid md:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="twoFactorCode" className="block text-sm font-medium text-gray-700 mb-1">
+              2FA Code
+            </label>
+            <input
+              type="text"
+              id="twoFactorCode"
+              value={twoFactorCode}
+              onChange={(e) => setTwoFactorCode(e.target.value)}
+              placeholder="123456"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition text-gray-900 bg-white placeholder:text-gray-400"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+            />
+          </div>
+          <div>
+            <label htmlFor="backupCode" className="block text-sm font-medium text-gray-700 mb-1">
+              Backup Code
+            </label>
+            <input
+              type="text"
+              id="backupCode"
+              value={backupCode}
+              onChange={(e) => setBackupCode(e.target.value)}
+              placeholder="ABCDE12345"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition text-gray-900 bg-white placeholder:text-gray-400 font-mono"
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <label className="flex items-center">

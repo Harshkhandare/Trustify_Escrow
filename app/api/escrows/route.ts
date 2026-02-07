@@ -13,31 +13,61 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const address = searchParams.get('address')
     const status = searchParams.get('status') as EscrowStatus | null
+    const q = (searchParams.get('q') || '').trim()
+    const sortBy = searchParams.get('sortBy') || 'newest'
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
 
     const where: any = {}
     
+    const andConditions: any[] = []
     if (address) {
       const lowerAddress = address.toLowerCase()
-      where.OR = [
-        { buyerAddress: { equals: lowerAddress, mode: 'insensitive' } },
-        { sellerAddress: { equals: lowerAddress, mode: 'insensitive' } },
-        { arbiterAddress: { equals: lowerAddress, mode: 'insensitive' } },
-      ]
+      andConditions.push({
+        OR: [
+          { buyerAddress: { equals: lowerAddress, mode: 'insensitive' } },
+          { sellerAddress: { equals: lowerAddress, mode: 'insensitive' } },
+          { arbiterAddress: { equals: lowerAddress, mode: 'insensitive' } },
+        ],
+      })
     }
     
     if (status) {
-      where.status = status
+      andConditions.push({ status })
     }
+
+    if (q) {
+      andConditions.push({
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+          { buyerAddress: { contains: q, mode: 'insensitive' } },
+          { sellerAddress: { contains: q, mode: 'insensitive' } },
+          { arbiterAddress: { contains: q, mode: 'insensitive' } },
+        ],
+      })
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
+    }
+
+    const orderBy =
+      sortBy === 'oldest'
+        ? { createdAt: 'asc' as const }
+        : sortBy === 'amount-high'
+          ? { amount: 'desc' as const }
+          : sortBy === 'amount-low'
+            ? { amount: 'asc' as const }
+            : { createdAt: 'desc' as const }
 
     const [escrows, total] = await Promise.all([
       prisma.escrow.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         include: {
           milestones: true,
           buyer: {

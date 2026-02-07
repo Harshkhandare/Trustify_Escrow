@@ -2,18 +2,21 @@
 
 import Link from 'next/link'
 import { useAccount } from 'wagmi'
-import { getSession, logout } from '@/utils/auth'
+import { getSession, logout, type User } from '@/utils/auth'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { NotificationsBell } from '@/components/NotificationsBell'
 
 export default function Home() {
   const { isConnected, address } = useAccount()
   const router = useRouter()
-  const [user, setUser] = useState(getSession())
+  const [user, setUser] = useState<User | null>(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    setMounted(true)
     setUser(getSession())
   }, [])
 
@@ -41,6 +44,24 @@ export default function Home() {
     router.push('/login')
   }
 
+  // Prevent hydration mismatch by not rendering user-dependent content until mounted
+  if (!mounted) {
+    return (
+      <main className="min-h-screen p-8">
+        <div className="max-w-7xl mx-auto">
+          <header className="flex justify-between items-center mb-12">
+            <Link href="/" className="text-4xl font-bold text-primary-600 hover:text-primary-700 transition">
+              Escrow Platform
+            </Link>
+            <div className="flex items-center gap-4">
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-lg"></div>
+            </div>
+          </header>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
@@ -61,6 +82,7 @@ export default function Home() {
                     Create Escrow
                   </Link>
                 )}
+                <NotificationsBell />
                 <div className="relative" ref={menuRef}>
                   <button
                     onClick={() => setShowMenu(!showMenu)}
@@ -80,6 +102,12 @@ export default function Home() {
                         <p className="text-sm font-medium text-gray-900">{user.name || 'User'}</p>
                         <p className="text-xs text-gray-500">{user.email || ''}</p>
                       </div>
+                      <Link
+                        href="/settings/security"
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+                      >
+                        Security Settings
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 transition"

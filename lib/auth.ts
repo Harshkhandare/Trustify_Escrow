@@ -15,7 +15,7 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+  return jwt.sign({ userId }, JWT_SECRET as jwt.Secret, { expiresIn: JWT_EXPIRES_IN as any })
 }
 
 export function verifyToken(token: string): { userId: string } | null {
@@ -42,6 +42,8 @@ export async function getCurrentUser() {
       email: true,
       name: true,
       walletAddress: true,
+      emailVerified: true,
+      isAdmin: true,
     },
   })
 }
@@ -61,4 +63,5 @@ export async function clearAuthCookie() {
   const cookieStore = await cookies()
   cookieStore.delete('auth-token')
 }
+
 

@@ -41,3 +41,17 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations
+/prisma/*.db
+/prisma/*.db-journal
+
+# hardhat
+/artifacts
+/cache
+/typechain-types
+
+# playwright
+/playwright-report
+/test-results
+
+# uploads
+/public/uploads

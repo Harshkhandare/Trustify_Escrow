@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export function SearchBar() {
+export function SearchBar({ basePath = '/escrows' }: { basePath?: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(searchParams.get('q') || '')
@@ -17,7 +17,7 @@ export function SearchBar() {
         params.delete('q')
       }
       params.set('page', '1') // Reset to first page
-      router.push(`/escrows?${params.toString()}`)
+      router.push(`${basePath}?${params.toString()}`)
     }, 500) // Debounce 500ms
 
     return () => clearTimeout(timer)
@@ -31,7 +31,7 @@ export function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search escrows..."
-          className="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          className="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 bg-white placeholder:text-gray-400"
           aria-label="Search escrows"
         />
         <svg
@@ -52,4 +52,5 @@ export function SearchBar() {
     </div>
   )
 }
+
 

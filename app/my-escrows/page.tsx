@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Escrow } from '@/types/escrow'
 import { EscrowCard } from '@/components/EscrowCard'
@@ -11,11 +11,14 @@ import { fetchEscrows } from '@/lib/api'
 import { DEMO_WALLET_ADDRESS } from '@/utils/demoWallet'
 import { SearchBar } from '@/components/SearchBar'
 import { Pagination } from '@/components/Pagination'
+import { NotificationsBell } from '@/components/NotificationsBell'
+import { ExportEscrowsCsvButton } from '@/components/ExportEscrowsCsvButton'
 import toast from 'react-hot-toast'
 
 export default function MyEscrowsPage() {
   const { address } = useAccount()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [escrows, setEscrows] = useState<Escrow[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +44,10 @@ export default function MyEscrowsPage() {
     const loadMyEscrows = async () => {
       try {
         setIsLoading(true)
-        const data = await fetchEscrows({ address: userAddress, page: 1, limit: 20 })
+        const page = parseInt(searchParams.get('page') || '1', 10)
+        const q = searchParams.get('q') || undefined
+        const sortBy = searchParams.get('sortBy') || undefined
+        const data = await fetchEscrows({ address: userAddress, page, limit: 20, q, sortBy })
         setEscrows(data.escrows)
         setPagination(data.pagination)
         setError(null)
@@ -57,7 +63,7 @@ export default function MyEscrowsPage() {
     if (userAddress) {
       loadMyEscrows()
     }
-  }, [userAddress])
+  }, [userAddress, searchParams])
 
   const authenticated = isAuthenticated()
 
@@ -98,6 +104,8 @@ export default function MyEscrowsPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">My Escrows</h1>
           <div className="flex gap-4 items-center">
+            <NotificationsBell />
+            <ExportEscrowsCsvButton escrows={escrows} filenamePrefix="my-escrows" />
             <Link
               href="/create"
               className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition"
@@ -114,7 +122,7 @@ export default function MyEscrowsPage() {
         </div>
 
         <div className="mb-6">
-          <SearchBar />
+          <SearchBar basePath="/my-escrows" />
         </div>
 
         {error && (
@@ -148,6 +156,7 @@ export default function MyEscrowsPage() {
             <Pagination
               currentPage={pagination.page}
               totalPages={pagination.totalPages}
+              basePath="/my-escrows"
             />
           </>
         )}

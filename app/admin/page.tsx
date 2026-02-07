@@ -94,12 +94,62 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-4">Recent Activity</h2>
-          <p className="text-gray-600">Activity feed will be displayed here</p>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
+            <div className="space-y-3">
+              <Link
+                href="/admin/disputes"
+                className="block bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg hover:bg-yellow-100 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Resolve Disputes</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+              <Link
+                href="/escrows"
+                className="block bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg hover:bg-blue-100 transition"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">View All Escrows</span>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4">System Status</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Database</span>
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold">
+                  Online
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">API</span>
+                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold">
+                  Operational
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Email Service</span>
+                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm font-semibold">
+                  Configured
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
   )
 }
+
 

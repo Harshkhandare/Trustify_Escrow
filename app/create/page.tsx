@@ -87,6 +87,12 @@ export default function CreateEscrowPage() {
           >
             View Dashboard
           </Link>
+          <Link
+            href="/templates"
+            className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+          >
+            Templates
+          </Link>
         </div>
 
         <CreateEscrowWizard />

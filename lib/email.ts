@@ -119,3 +119,4 @@ export function getEscrowEmailTemplate(
   return templates[type]
 }
 
+

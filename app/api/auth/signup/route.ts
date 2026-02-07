@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rateLimit'
 import logger from '@/lib/logger'
 import { z } from 'zod'
 import { handleApiError } from '@/lib/apiErrorHandler'
+import { createAndSendEmailVerification } from '@/lib/emailVerification'
 
 export async function POST(request: NextRequest) {
   const rateLimitResult = rateLimit(request)
@@ -41,18 +42,27 @@ export async function POST(request: NextRequest) {
         email: validated.email,
         name: validated.name,
         passwordHash,
+        emailVerified: false,
       },
       select: {
         id: true,
         email: true,
         name: true,
         walletAddress: true,
+        emailVerified: true,
       },
     })
 
     // Generate token
     const token = generateToken(user.id)
     await setAuthCookie(token)
+
+    // Send verification email (no-op if SMTP is not configured)
+    await createAndSendEmailVerification({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    })
 
     logger.info(`New user registered: ${user.id}`)
 
@@ -68,4 +78,5 @@ export async function POST(request: NextRequest) {
     return handleApiError(error)
   }
 }
+
 

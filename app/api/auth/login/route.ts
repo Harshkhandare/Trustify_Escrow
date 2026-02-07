@@ -6,6 +6,7 @@ import { rateLimit } from '@/lib/rateLimit'
 import logger from '@/lib/logger'
 import { z } from 'zod'
 import { handleApiError } from '@/lib/apiErrorHandler'
+import { sha256, verifyTotp } from '@/lib/twoFactor'
 
 export async function POST(request: NextRequest) {
   // Rate limiting
@@ -57,6 +58,50 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid email or password' },
         { status: 401 }
       )
+    }
+
+    // If 2FA is enabled, require a valid TOTP code or backup code
+    if (user.twoFactorEnabled) {
+      const twoFactorCode = typeof body.twoFactorCode === 'string' ? body.twoFactorCode : undefined
+      const backupCode = typeof body.backupCode === 'string' ? body.backupCode : undefined
+
+      if (!twoFactorCode && !backupCode) {
+        return NextResponse.json(
+          { error: 'Two-factor authentication required', requiresTwoFactor: true },
+          { status: 401 }
+        )
+      }
+
+      let verified = false
+
+      if (twoFactorCode && user.twoFactorSecret) {
+        verified = verifyTotp({ token: twoFactorCode, secret: user.twoFactorSecret })
+      }
+
+      if (!verified && backupCode && user.twoFactorBackupCodes) {
+        try {
+          const hashes: string[] = JSON.parse(user.twoFactorBackupCodes)
+          const hash = sha256(backupCode.trim().toUpperCase())
+          if (hashes.includes(hash)) {
+            verified = true
+            // consume backup code
+            const remaining = hashes.filter((h) => h !== hash)
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { twoFactorBackupCodes: JSON.stringify(remaining) },
+            })
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!verified) {
+        return NextResponse.json(
+          { error: 'Invalid 2FA code', requiresTwoFactor: true },
+          { status: 401 }
+        )
+      }
     }
 
     // Generate token

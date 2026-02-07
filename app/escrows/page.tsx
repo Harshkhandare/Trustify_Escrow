@@ -8,6 +8,8 @@ import { EscrowCard } from '@/components/EscrowCard'
 import { SearchBar } from '@/components/SearchBar'
 import { EscrowFilters } from '@/components/EscrowFilters'
 import { Pagination } from '@/components/Pagination'
+import { NotificationsBell } from '@/components/NotificationsBell'
+import { ExportEscrowsCsvButton } from '@/components/ExportEscrowsCsvButton'
 import { fetchEscrows } from '@/lib/api'
 import toast from 'react-hot-toast'
 
@@ -30,29 +32,18 @@ export default function EscrowsPage() {
         const page = parseInt(searchParams.get('page') || '1', 10)
         const address = searchParams.get('address') || undefined
         const status = searchParams.get('status') as any || undefined
-        const query = searchParams.get('q') || undefined
+        const q = searchParams.get('q') || undefined
+        const sortBy = searchParams.get('sortBy') || undefined
 
         const data = await fetchEscrows({
           address,
           status,
+          q,
+          sortBy,
           page,
           limit: 20,
         })
-
-        // Filter by search query if provided
-        let filtered = data.escrows
-        if (query) {
-          const lowerQuery = query.toLowerCase()
-          filtered = data.escrows.filter(
-            (e) =>
-              e.title?.toLowerCase().includes(lowerQuery) ||
-              e.description?.toLowerCase().includes(lowerQuery) ||
-              e.buyer?.toLowerCase().includes(lowerQuery) ||
-              e.seller?.toLowerCase().includes(lowerQuery)
-          )
-        }
-
-        setEscrows(filtered)
+        setEscrows(data.escrows)
         setPagination({
           page: data.pagination.page,
           limit: data.pagination.limit,
@@ -78,6 +69,8 @@ export default function EscrowsPage() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold">All Escrows</h1>
           <div className="flex gap-4 items-center">
+            <NotificationsBell />
+            <ExportEscrowsCsvButton escrows={escrows} filenamePrefix="escrows" />
             <Link
               href="/create"
               className="bg-primary-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-primary-700 transition"

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { handleApiError } from '@/lib/apiErrorHandler'
+import logger from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,36 +11,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ notifications: [] })
     }
 
-    // Get unread notifications for the user
-    // This is a simplified version - you'd want a proper notifications table
-    const activities = await prisma.activity.findMany({
+    const searchParams = request.nextUrl.searchParams
+    const unreadOnly = searchParams.get('unread') === 'true'
+    const limit = parseInt(searchParams.get('limit') || '50', 10)
+
+    const notifications = await prisma.notification.findMany({
       where: {
         userId: user.id,
-        createdAt: {
-          gte: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
-        },
+        ...(unreadOnly && { read: false }),
       },
       orderBy: { createdAt: 'desc' },
-      take: 10,
-      select: {
-        id: true,
-        type: true,
-        message: true,
-        createdAt: true,
-      },
+      take: limit,
     })
 
-    return NextResponse.json({
-      notifications: activities.map((n) => ({
-        id: n.id,
-        type: n.type.toLowerCase() as 'info' | 'success' | 'warning' | 'error',
-        message: n.message,
-        timestamp: n.createdAt,
-      })),
-    })
+    return NextResponse.json({ notifications })
   } catch (error) {
-    console.error('Error fetching notifications:', error)
-    return NextResponse.json({ notifications: [] })
+    logger.error('Error fetching notifications:', error)
+    return handleApiError(error)
   }
 }
+
+// Mark all notifications as read
+export async function PATCH(request: NextRequest) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    await prisma.notification.updateMany({
+      where: { userId: user.id, read: false },
+      data: { read: true },
+    })
+
+    return NextResponse.json({ message: 'All notifications marked as read' })
+  } catch (error) {
+    logger.error('Error updating notifications:', error)
+    return handleApiError(error)
+  }
+}
+
 

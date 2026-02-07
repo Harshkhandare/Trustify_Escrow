@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { EscrowFormData, initialFormData, EscrowType, TokenType, ReleaseCondition, Milestone } from '@/types/escrowForm'
 import { DEMO_WALLET_ADDRESS } from '@/utils/demoWallet'
 import { Step1Basics } from './wizard/Step1Basics'
@@ -12,12 +12,15 @@ import { Step4Release } from './wizard/Step4Release'
 import { Step5Work } from './wizard/Step5Work'
 import { Step6Dispute } from './wizard/Step6Dispute'
 import { Step7Review } from './wizard/Step7Review'
+import { fetchTemplateById } from '@/lib/api'
+import { applyTemplateDefaults, safeJsonParse } from '@/lib/templateDefaults'
 
 const TOTAL_STEPS = 7
 
 export function CreateEscrowWizard() {
   const { address } = useAccount()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<EscrowFormData>({
     ...initialFormData,
@@ -25,12 +28,48 @@ export function CreateEscrowWizard() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null)
 
   // Update payer address - use demo wallet or connected wallet
   useEffect(() => {
     const payerAddr = address || DEMO_WALLET_ADDRESS
     setFormData(prev => ({ ...prev, payerAddress: payerAddr }))
   }, [address])
+
+  // Apply template from URL (?templateId=...)
+  useEffect(() => {
+    const templateId = searchParams.get('templateId')
+    if (!templateId) return
+    if (appliedTemplateId === templateId) return
+
+    let mounted = true
+    ;(async () => {
+      try {
+        const { template } = await fetchTemplateById(templateId)
+        if (!mounted) return
+
+        const defaults = safeJsonParse(template.defaultData)
+        if (!defaults || typeof defaults !== 'object') {
+          const { default: toast } = await import('react-hot-toast')
+          toast.error('Template has invalid default data')
+          return
+        }
+
+        setFormData((prev) => ({ ...prev, ...applyTemplateDefaults(prev, defaults) }))
+        setErrors({})
+        setAppliedTemplateId(templateId)
+        const { default: toast } = await import('react-hot-toast')
+        toast.success(`Applied template: ${template.name}`)
+      } catch {
+        const { default: toast } = await import('react-hot-toast')
+        toast.error('Failed to apply template')
+      }
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [searchParams, appliedTemplateId])
 
   const updateFormData = (updates: Partial<EscrowFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }))

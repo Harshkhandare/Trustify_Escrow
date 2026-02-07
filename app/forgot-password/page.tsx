@@ -13,11 +13,25 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
     setMessage(null)
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setMessage('If an account exists with this email, you will receive password reset instructions.')
-    setIsLoading(false)
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send reset email')
+      }
+
+      setMessage(data.message || 'If an account exists with this email, you will receive password reset instructions.')
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Failed to send reset email. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -73,4 +87,5 @@ export default function ForgotPasswordPage() {
     </main>
   )
 }
+
 

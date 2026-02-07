@@ -8,10 +8,19 @@ export async function GET() {
   try {
     const user = await getCurrentUser()
     
-    // TODO: Check if user is admin
-    // if (!user || !user.isAdmin) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    // }
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check if user is admin
+    const dbUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { isAdmin: true },
+    })
+
+    if (!dbUser || !dbUser.isAdmin) {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 })
+    }
 
     const [
       totalEscrows,
@@ -59,4 +68,5 @@ export async function GET() {
     )
   }
 }
+
 

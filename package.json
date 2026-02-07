@@ -15,9 +15,15 @@
     "format:check": "prettier --check .",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "validate-env": "tsx lib/env.ts"
+    "validate-env": "tsx lib/env.ts",
+    "hh:compile": "hardhat compile",
+    "hh:test": "hardhat test",
+    "hh:node": "hardhat node",
+    "hh:deploy:localhost": "hardhat run scripts/deploy.ts --network localhost",
+    "hh:deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
   },
   "dependencies": {
     "@prisma/client": "^5.7.0",
@@ -31,6 +37,7 @@
     "next": "^14.0.0",
     "next-seo": "^6.4.0",
     "nodemailer": "^6.9.7",
+    "otplib": "^13.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
@@ -40,6 +47,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@playwright/test": "^1.40.0",
     "@sentry/nextjs": "^7.91.0",
     "@testing-library/jest-dom": "^6.1.5",
@@ -51,8 +59,10 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.0",
+    "dotenv": "^17.2.4",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.0.0",
+    "hardhat": "^2.28.4",
     "jest": "^29.7.0",
     "postcss": "^8.4.0",
     "prettier": "^3.1.1",

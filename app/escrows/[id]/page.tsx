@@ -46,6 +46,24 @@ export default function EscrowDetailsPage() {
     loadEscrow()
   }, [params.id])
 
+  // Poll for updates (simple "real-time" refresh)
+  useEffect(() => {
+    const escrowId = params.id as string
+    if (!escrowId) return
+
+    const timer = setInterval(async () => {
+      if (isProcessing) return
+      try {
+        const data = await fetchEscrowById(escrowId)
+        setEscrow(data)
+      } catch {
+        // ignore polling errors
+      }
+    }, 10000)
+
+    return () => clearInterval(timer)
+  }, [params.id, isProcessing])
+
   if (isLoading) {
     return (
       <main className="min-h-screen p-8">
@@ -326,7 +344,6 @@ export default function EscrowDetailsPage() {
         >
           <p>{confirmAction?.message}</p>
         </Modal>
-        </div>
 
         <div className="mt-8">
           <Link

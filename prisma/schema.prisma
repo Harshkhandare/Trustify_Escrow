@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -13,12 +13,20 @@ model User {
   name          String
   passwordHash  String
   walletAddress String?
+  isAdmin       Boolean   @default(false)
+  emailVerified Boolean   @default(false)
+  twoFactorEnabled Boolean @default(false)
+  twoFactorSecret  String?
+  twoFactorBackupCodes String? // JSON array of SHA-256 hashes
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   escrowsAsBuyer   Escrow[] @relation("BuyerEscrows")
   escrowsAsSeller   Escrow[] @relation("SellerEscrows")
   escrowsAsArbiter  Escrow[] @relation("ArbiterEscrows")
   sessions      Session[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  notifications Notification[]
 }
 
 model Session {
@@ -104,11 +112,72 @@ model Activity {
   type     String
   message  String
   userId   String?
-  metadata Json?
+  metadata String?   // JSON stored as string for SQLite compatibility
   createdAt DateTime @default(now())
   escrow   Escrow   @relation(fields: [escrowId], references: [id], onDelete: Cascade)
   
   @@index([escrowId])
   @@index([createdAt])
 }
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  metadata  String?  // JSON stored as string for SQLite compatibility
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model EscrowTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  type        String
+  defaultData String?  // JSON stored as string for SQLite compatibility
+  isPublic    Boolean  @default(false)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isPublic])
+  @@index([createdBy])
+}
+
 
