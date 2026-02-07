@@ -29,6 +29,85 @@ export function CreateEscrowWizard() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null)
+  const [appliedDemo, setAppliedDemo] = useState(false)
+
+  const ERROR_META: Record<string, { step: number; label: string }> = {
+    title: { step: 1, label: 'Escrow title' },
+    type: { step: 1, label: 'Escrow type' },
+    payerAddress: { step: 2, label: 'Payer wallet address' },
+    payeeAddress: { step: 2, label: 'Payee wallet address' },
+    amount: { step: 3, label: 'Amount' },
+    releaseCondition: { step: 4, label: 'Release condition' },
+    autoReleaseTime: { step: 4, label: 'Auto-release time' },
+    milestones: { step: 4, label: 'Milestones' },
+    description: { step: 5, label: 'Work description' },
+    disputeWindow: { step: 6, label: 'Dispute window' },
+    termsAccepted: { step: 7, label: 'Accept terms' },
+  }
+
+  const uid = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
+
+  const buildDemoData = (payerAddr: string): Partial<EscrowFormData> => {
+    const payeeAddr = '0x1111111111111111111111111111111111111111'
+    const now = Date.now()
+    const fundingDeadline = new Date(now + 1000 * 60 * 60 * 24 * 3).toISOString() // 3 days
+
+    const amount = '1.00'
+    const m1 = '0.50'
+    const m2 = '0.50'
+
+    return {
+      // Step 1
+      title: `Demo Escrow - Landing Page (${new Date().toLocaleDateString()})`,
+      type: EscrowType.MILESTONE,
+
+      // Step 2
+      payerAddress: payerAddr,
+      payeeAddress: payeeAddr,
+
+      // Step 3
+      amount,
+      token: TokenType.USDC,
+      feePercentage: 1,
+      feePaidBy: 'payer',
+      fundingDeadline,
+
+      // Step 4
+      releaseCondition: ReleaseCondition.MILESTONE,
+      autoReleaseTime: '',
+      milestones: [
+        {
+          id: uid(),
+          title: 'Milestone 1: Design + Wireframe',
+          description: 'Initial design + wireframe approval',
+          amount: m1,
+          dueDate: new Date(now + 1000 * 60 * 60 * 24 * 7).toISOString(),
+        },
+        {
+          id: uid(),
+          title: 'Milestone 2: Final Delivery',
+          description: 'Final landing page delivered + QA',
+          amount: m2,
+          dueDate: new Date(now + 1000 * 60 * 60 * 24 * 14).toISOString(),
+        },
+      ],
+
+      // Step 5
+      description:
+        'Build a responsive landing page with SEO basics, contact section, and a simple FAQ.\n\nAcceptance:\n- Mobile + desktop responsive\n- Lighthouse performance >= 85\n- Deployed preview link',
+      deliverables: 'Figma link, deployed preview URL, and source code repo link',
+
+      // Step 6
+      disputeWindow: 7,
+      disputeResolver: 'platform-admin',
+
+      // Step 7
+      termsAccepted: true,
+    }
+  }
 
   // Update payer address - use demo wallet or connected wallet
   useEffect(() => {
@@ -71,13 +150,46 @@ export function CreateEscrowWizard() {
     }
   }, [searchParams, appliedTemplateId])
 
-  const updateFormData = (updates: Partial<EscrowFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }))
-    // Clear errors when user updates field
+  // Apply demo data from URL (?demo=1) — useful for quick testing
+  useEffect(() => {
+    const demo = searchParams.get('demo')
+    if (demo !== '1') return
+    if (appliedDemo) return
+
+    const payerAddr = address || DEMO_WALLET_ADDRESS
+    const demoData = buildDemoData(payerAddr)
+    setFormData((prev) => ({ ...prev, ...demoData, payerAddress: payerAddr }))
     setErrors({})
+    setAppliedDemo(true)
+    setCurrentStep(1)
+  }, [searchParams, appliedDemo, address])
+
+  const handleFillDemoData = async () => {
+    const payerAddr = address || DEMO_WALLET_ADDRESS
+    const demoData = buildDemoData(payerAddr)
+    setFormData((prev) => ({ ...prev, ...demoData, payerAddress: payerAddr }))
+    setErrors({})
+    setCurrentStep(1)
+    const { default: toast } = await import('react-hot-toast')
+    toast.success('Demo data filled. You can click Next through the steps or submit on Review.')
   }
 
-  const validateStep = (step: number): boolean => {
+  const updateFormData = (updates: Partial<EscrowFormData>) => {
+    setFormData(prev => ({ ...prev, ...updates }))
+    // Clear only the errors for fields being updated (keep the rest)
+    const keys = Object.keys(updates) as Array<keyof EscrowFormData>
+    if (keys.length > 0) {
+      setErrors((prev) => {
+        if (Object.keys(prev).length === 0) return prev
+        const next = { ...prev }
+        for (const k of keys) delete next[k as string]
+        if (keys.includes('milestones')) delete next.milestones
+        return next
+      })
+    }
+  }
+
+  const validateStep = (step: number): Record<string, string> => {
     const newErrors: Record<string, string> = {}
 
     switch (step) {
@@ -151,17 +263,21 @@ export function CreateEscrowWizard() {
         break
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    return newErrors
   }
 
-  const handleNext = () => {
-    // Allow proceeding without validation - users can fill data later
-    if (currentStep < TOTAL_STEPS) {
-      setCurrentStep(prev => prev + 1)
-      // Clear errors when moving to next step
-      setErrors({})
+  const handleNext = async () => {
+    if (currentStep >= TOTAL_STEPS) return
+
+    const stepErrors = validateStep(currentStep)
+    if (Object.keys(stepErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...stepErrors }))
+      const { default: toast } = await import('react-hot-toast')
+      toast.error('Please fix the highlighted fields to continue.')
+      return
     }
+
+    setCurrentStep(prev => prev + 1)
   }
 
   const handleBack = () => {
@@ -170,8 +286,57 @@ export function CreateEscrowWizard() {
     }
   }
 
+  const validateAllSteps = (): Record<string, string> => {
+    const all: Record<string, string> = {}
+    for (let step = 1; step <= TOTAL_STEPS; step++) {
+      Object.assign(all, validateStep(step))
+    }
+    return all
+  }
+
+  const getFirstErrorStep = (errs: Record<string, string>): number | null => {
+    const keys = Object.keys(errs).filter((k) => k !== 'submit')
+    let minStep = Number.POSITIVE_INFINITY
+    for (const key of keys) {
+      const meta = ERROR_META[key]
+      if (meta?.step && meta.step < minStep) minStep = meta.step
+    }
+    return Number.isFinite(minStep) ? minStep : null
+  }
+
+  const stepHasErrors = (step: number) => {
+    for (const key of Object.keys(errors)) {
+      if (ERROR_META[key]?.step === step) return true
+    }
+    return false
+  }
+
+  const errorListForReview = Object.entries(errors)
+    .filter(([key]) => key !== 'submit' && key !== 'termsAccepted')
+    .map(([key, message]) => ({
+      key,
+      message,
+      step: ERROR_META[key]?.step,
+      label: ERROR_META[key]?.label || key,
+    }))
+    .filter((e) => typeof e.step === 'number')
+    .sort((a, b) => (a.step! - b.step!))
+
   const handleSubmit = async () => {
-    if (!validateStep(7)) return
+    const allErrors = validateAllSteps()
+    if (Object.keys(allErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...allErrors }))
+      const firstStep = getFirstErrorStep(allErrors)
+      if (firstStep) {
+        setCurrentStep(firstStep)
+        if (typeof window !== 'undefined') {
+          requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+        }
+      }
+      const { default: toast } = await import('react-hot-toast')
+      toast.error('Some required fields are missing. Please fix the highlighted inputs.')
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -207,7 +372,16 @@ export function CreateEscrowWizard() {
       {/* Progress Indicator */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">Create Escrow</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-800">Create Escrow</h2>
+            <button
+              type="button"
+              onClick={handleFillDemoData}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+            >
+              Fill Demo Data
+            </button>
+          </div>
           <span className="text-sm text-gray-600">
             Step {currentStep} of {TOTAL_STEPS}
           </span>
@@ -226,7 +400,12 @@ export function CreateEscrowWizard() {
                 step <= currentStep ? 'text-primary-600 font-semibold' : 'text-gray-400'
               }`}
             >
-              {step}
+              <span className="inline-flex items-center gap-1">
+                {step}
+                {stepHasErrors(step) && (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" aria-label="Step has errors" />
+                )}
+              </span>
             </div>
           ))}
         </div>
@@ -286,6 +465,13 @@ export function CreateEscrowWizard() {
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
             onBack={handleBack}
+            issueList={errorListForReview}
+            onGoToStep={(step) => {
+              setCurrentStep(step)
+              if (typeof window !== 'undefined') {
+                requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }))
+              }
+            }}
           />
         )}
 

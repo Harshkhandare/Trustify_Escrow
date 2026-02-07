@@ -10,9 +10,20 @@ interface Step7ReviewProps {
   onSubmit: () => void
   isSubmitting: boolean
   onBack: () => void
+  issueList?: Array<{ key: string; message: string; step?: number; label?: string }>
+  onGoToStep?: (step: number) => void
 }
 
-export function Step7Review({ formData, updateFormData, errors, onSubmit, isSubmitting, onBack }: Step7ReviewProps) {
+export function Step7Review({
+  formData,
+  updateFormData,
+  errors,
+  onSubmit,
+  isSubmitting,
+  onBack,
+  issueList,
+  onGoToStep,
+}: Step7ReviewProps) {
   const feeAmount = formData.amount
     ? (parseFloat(formData.amount) * formData.feePercentage / 100).toFixed(4)
     : '0.0000'
@@ -48,6 +59,42 @@ export function Step7Review({ formData, updateFormData, errors, onSubmit, isSubm
 
   return (
     <div className="space-y-6">
+      {/* Validation summary */}
+      {issueList && issueList.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div className="min-w-0">
+              <p className="font-semibold text-red-800">Fix these before creating the escrow</p>
+              <ul className="mt-2 space-y-1 text-sm text-red-700">
+                {issueList.slice(0, 8).map((issue) => (
+                  <li key={issue.key}>
+                    {typeof issue.step === 'number' && onGoToStep ? (
+                      <button
+                        type="button"
+                        onClick={() => onGoToStep(issue.step as number)}
+                        className="underline hover:no-underline text-left"
+                      >
+                        Step {issue.step}: {issue.label || issue.key} — {issue.message}
+                      </button>
+                    ) : (
+                      <span>
+                        {issue.label || issue.key} — {issue.message}
+                      </span>
+                    )}
+                  </li>
+                ))}
+                {issueList.length > 8 && (
+                  <li className="text-red-700">…and {issueList.length - 8} more</li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Escrow Summary */}
       <div className="bg-gray-50 rounded-lg p-6 space-y-4">
         <h4 className="text-lg font-semibold text-gray-800 mb-4">Escrow Summary</h4>
@@ -183,7 +230,7 @@ export function Step7Review({ formData, updateFormData, errors, onSubmit, isSubm
         </button>
         <button
           onClick={onSubmit}
-          disabled={isSubmitting || !formData.termsAccepted}
+          disabled={isSubmitting}
           className="px-8 py-3 bg-primary-600 text-white rounded-lg font-semibold hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
           {isSubmitting ? (
