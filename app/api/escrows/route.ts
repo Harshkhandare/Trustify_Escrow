@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
+    const isSqlite = (process.env.DATABASE_URL || '').startsWith('file:')
 
     const where: any = {}
     
@@ -26,9 +27,9 @@ export async function GET(request: NextRequest) {
       const lowerAddress = address.toLowerCase()
       andConditions.push({
         OR: [
-          { buyerAddress: { equals: lowerAddress, mode: 'insensitive' } },
-          { sellerAddress: { equals: lowerAddress, mode: 'insensitive' } },
-          { arbiterAddress: { equals: lowerAddress, mode: 'insensitive' } },
+          { buyerAddress: isSqlite ? { equals: lowerAddress } : { equals: lowerAddress, mode: 'insensitive' } },
+          { sellerAddress: isSqlite ? { equals: lowerAddress } : { equals: lowerAddress, mode: 'insensitive' } },
+          { arbiterAddress: isSqlite ? { equals: lowerAddress } : { equals: lowerAddress, mode: 'insensitive' } },
         ],
       })
     }
@@ -38,13 +39,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (q) {
+      const qLower = q.toLowerCase()
       andConditions.push({
         OR: [
-          { title: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-          { buyerAddress: { contains: q, mode: 'insensitive' } },
-          { sellerAddress: { contains: q, mode: 'insensitive' } },
-          { arbiterAddress: { contains: q, mode: 'insensitive' } },
+          { title: isSqlite ? { contains: q } : { contains: q, mode: 'insensitive' } },
+          { description: isSqlite ? { contains: q } : { contains: q, mode: 'insensitive' } },
+          // For sqlite, LIKE is typically case-insensitive for ASCII; also try lowercased query for addresses
+          { buyerAddress: isSqlite ? { contains: qLower } : { contains: q, mode: 'insensitive' } },
+          { sellerAddress: isSqlite ? { contains: qLower } : { contains: q, mode: 'insensitive' } },
+          { arbiterAddress: isSqlite ? { contains: qLower } : { contains: q, mode: 'insensitive' } },
         ],
       })
     }
